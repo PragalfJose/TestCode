@@ -55,7 +55,7 @@ bool fileHandlerFileRemove(uint8 *pucFileName);
 bool fileHandlerFileCreate(uint8 *pucFileName);
 bool fileHandlerFileCheckExist(uint8 *pucFileName);
 bool fileHandlerFilePointerPosition(FILE ** pFileHandle, int32 *plPosition);
-// bool fileHandlerFileSeek();
+bool fileHandlerFileSeek(FILE **pFileHandle, int32 lOffset, int32 lPosition);
 
 #endif // _FILE_HANDLER_H
 // EOF

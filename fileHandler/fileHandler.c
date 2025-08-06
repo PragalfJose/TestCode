@@ -125,11 +125,11 @@ bool fileHandlerFilePointerPosition(FILE ** pFileHandle, int32 *plPosition)
     return blReturn;
 }
 
-//**********************.fileHandlerFilePointerPosition.***********************
+//***************************.fileHandlerFileSeek.*****************************
 //Purpose   : Find current position of pointer in file
 //Inputs    : pFileHandle - File pointer to an opened file
-//Inputs    : pFileHandle - File pointer to an opened file
-//Inputs    : pFileHandle - File pointer to an opened file
+//Inputs    : lOffset - Offset value we need to move pointer
+//Inputs    : lPosition - Position from we need to move pointer
 //Outputs   : None
 //Return    : true - Pointer moved to given position, false - failed to move
 //Notes     : None
