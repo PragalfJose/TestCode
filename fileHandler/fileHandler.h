@@ -26,8 +26,6 @@
 #define OPEN_R_PLUS             "r+"
 #define OPEN_A_PLUS             "a+"
 
-
-
 //***************************** Global Variables ******************************
 
 //**************************** Forward Declarations ***************************

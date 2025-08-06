@@ -30,8 +30,9 @@
 #define DATA_SIZE               26
 #define SEM_NAME1               "ProducerSemaphore"
 #define SEM_NAME2               "ConsumerSemaphore"
+#define SEM_NAME3               "MainThreadSemaphore"
 #define MQ_NAME                 "/MessageQueue"
-#define MODE_FLAGS              666
+#define MODE_FLAGS              0666
 #define MSG_PRIORITY            1
 #define MAX_MESSAGES            10
 #define MAX_MSG_LEN             64
@@ -39,9 +40,10 @@
 //***************************** Global Variables ******************************
 uint32 ulDataCount = 0;
 pthread_mutex_t mFileMutex = {0};
-mqd_t pmMessageQueue = 0;
+mqd_t mMessageQueue = 0;
 sem_t *psProducerSemaphore = NULL;
 sem_t *psConsumerSemaphore = NULL;
+sem_t *psMainThreadSemaphore = NULL;
 
 //******************************.ProducerThread.*******************************
 //Purpose : Generate a random number
@@ -55,9 +57,9 @@ void* ProducerThread()
     uint16 unRandomNumber = 0;
     uint8 pucRandomNumberString[STRING_LEN] = {0};
 
-    sem_wait(psProducerSemaphore);
     while(TRUE)
     {
+        sem_wait(psProducerSemaphore);
         unRandomNumber = (rand() % (MAX_VALUE- MIN_VALUE + 1)) + MIN_VALUE;
         memset(pucRandomNumberString, 0, sizeof(pucRandomNumberString));
         sprintf(pucRandomNumberString, 
@@ -70,7 +72,7 @@ void* ProducerThread()
                                        ulDataCount);
         ulDataCount++;
         pthread_mutex_unlock(&mFileMutex);
-        sem_wait(psProducerSemaphore);
+        sem_post(psConsumerSemaphore);
     }
 
     pthread_exit((void *)0);
@@ -85,34 +87,29 @@ void* ProducerThread()
 //*****************************************************************************
 void* ConsumerThread()
 {
-    uint32 ulTemporaryDataCount = ulDataCount;
     uint8 pucReadData[STRING_LEN] = {0};
 
     while(TRUE)
     {
-        pthread_testcancel();
-        if(ulDataCount != ulTemporaryDataCount)
+        memset(pucReadData, 0, sizeof(pucReadData));
+        if(mq_receive(mMessageQueue, 
+                        pucReadData, 
+                        MAX_MSG_LEN, 
+                        NULL) == ERROR_VALUE)
         {
-            memset(pucReadData, 0, sizeof(pucReadData));
-            if(mq_receive(pmMessageQueue, 
-                          pucReadData, 
-                          MAX_MSG_LEN, 
-                          NULL) == ERROR_VALUE)
-            {
-                printf("Message Receive Failed\r\n");
-            }
-            printf("%s", pucReadData);
-            memset(pucReadData, 0, sizeof(pucReadData));
-            pthread_mutex_lock(&mFileMutex);
-            fileHandlerFileReadFromPosition(FILE_NAME, 
-                                     pucReadData, 
-                                     DATA_SIZE, 
-                                     ulDataCount-1);
-            printf("In Counsumer - %s",pucReadData);
-            ulTemporaryDataCount = ulDataCount;
-            pthread_mutex_unlock(&mFileMutex);
-            sem_post(psConsumerSemaphore);
+            printf("Message Receive Failed\r\n");
         }
+        printf("%s", pucReadData);
+        sem_wait(psConsumerSemaphore);
+        memset(pucReadData, 0, sizeof(pucReadData));
+        pthread_mutex_lock(&mFileMutex);
+        fileHandlerFileReadFromPosition(FILE_NAME, 
+                                    pucReadData, 
+                                    DATA_SIZE, 
+                                    ulDataCount-1);
+        printf("In Counsumer - %s",pucReadData);
+        pthread_mutex_unlock(&mFileMutex);
+        sem_post(psMainThreadSemaphore);
     }
 
     pthread_exit((void *)0);
@@ -139,12 +136,11 @@ int main()
                                  .mq_curmsgs = 0
                                 };
 
-    pmMessageQueue = mq_open(MQ_NAME, 
+    mMessageQueue = mq_open(MQ_NAME, 
                              O_CREAT | O_RDWR, 
                              MODE_FLAGS, 
                              &stAttributes);
-    printf("pmMessageQueue : %d\r\n", pmMessageQueue);
-    if(pmMessageQueue == ERROR_VALUE)
+    if(mMessageQueue == ERROR_VALUE)
     {
         printf("Message Queue Creation failed\r\n");
         exit(-1);
@@ -166,21 +162,35 @@ int main()
     if(psProducerSemaphore == SEM_FAILED)
     {
         sem_unlink(SEM_NAME1);
-        psProducerSemaphore = sem_open(SEM_NAME1, O_CREAT, MODE_FLAGS, 0);;
+        psProducerSemaphore = sem_open(SEM_NAME1, O_CREAT, MODE_FLAGS, 0);
         if(psProducerSemaphore == SEM_FAILED)
         {
             printf("Producer Semaphore Creation failed\r\n");
             exit(-1);
         }
     }
-    psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT | O_EXCL, MODE_FLAGS, 1);
+    psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT | O_EXCL, MODE_FLAGS, 0);
     if(psConsumerSemaphore == SEM_FAILED)
     {
         sem_unlink(SEM_NAME2);
-        psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT, MODE_FLAGS, 1);;
+        psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT, MODE_FLAGS, 0);
         if(psConsumerSemaphore == SEM_FAILED)
         {
             printf("Consumer Semaphore Creation failed\r\n");
+            exit(-1);
+        }
+    }
+    psMainThreadSemaphore = sem_open(SEM_NAME3, 
+                                     O_CREAT | O_EXCL, 
+                                     MODE_FLAGS, 
+                                     1);
+    if(psMainThreadSemaphore == SEM_FAILED)
+    {
+        sem_unlink(SEM_NAME3);
+        psMainThreadSemaphore = sem_open(SEM_NAME3, O_CREAT, MODE_FLAGS, 1);
+        if(psMainThreadSemaphore == SEM_FAILED)
+        {
+            printf("Mainthread Semaphore Creation failed\r\n");
             exit(-1);
         }
     }
@@ -208,7 +218,7 @@ int main()
 
     while(TRUE)
     {
-        sem_wait(psConsumerSemaphore);
+        sem_wait(psMainThreadSemaphore);
         printf("Enter a number between 1 to 10 : ");
         scanf("%[^\n]c", &ucInputValue);
         getchar();
@@ -221,7 +231,7 @@ int main()
         sprintf(pucMessageString, 
                 "Key Pressed in  Main : %c\r\n", 
                 ucInputValue);
-        if(mq_send(pmMessageQueue, 
+        if(mq_send(mMessageQueue, 
                    pucMessageString, 
                    MAX_MSG_LEN, 
                    MSG_PRIORITY) == ERROR_VALUE)
@@ -242,7 +252,9 @@ int main()
     sem_unlink(SEM_NAME1);                  // Unlink the named semaphore
     sem_close(psConsumerSemaphore);         // Close the semaphore descriptor
     sem_unlink(SEM_NAME2);                  // Unlink the named semaphore
-    mq_close(pmMessageQueue);               // Close Message queue
+    sem_close(psMainThreadSemaphore);       // Close the semaphore descriptor
+    sem_unlink(SEM_NAME3);                  // Unlink the named semaphore
+    mq_close(mMessageQueue);                // Close Message queue
     mq_unlink(MQ_NAME);                     // Unlink Message queue
     pthread_mutex_destroy(&mFileMutex);     // Delete mutex after use
 
