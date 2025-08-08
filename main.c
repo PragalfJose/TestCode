@@ -4,7 +4,7 @@
 //*****************************************************************************
 //
 // File     : main.c
-// Summary  : Creating two threads to do file operation
+// Summary  : Creating three threads to do log and control GPIO Status
 // Note     : None
 // Author   : Pragalf T Jose
 // Date     : 04/08/2025
@@ -12,109 +12,140 @@
 //*****************************************************************************
 
 //***************************** Include Files *********************************
-#include <pthread.h>
-#include <semaphore.h>
-#include <mqueue.h>
-#include <fcntl.h>              // For O_CREAT, O_EXCL
-#include <sys/stat.h>           // For mode constants
-#include <Common.h>
-#include <fileHandler.h>
+#include "Common.h"
+#include "fileHandler.h"
+#include "possixOperation.h"
 
 //***************************** Global Types **********************************
 
 //***************************** Global Constants ******************************
-#define MAX_VALUE               999
-#define MIN_VALUE               1
-#define STRING_LEN              64
-#define FILE_NAME               "TestDoc.txt"
-#define DATA_SIZE               26
-#define SEM_NAME1               "ProducerSemaphore"
-#define SEM_NAME2               "ConsumerSemaphore"
-#define SEM_NAME3               "MainThreadSemaphore"
-#define MQ_NAME                 "/MessageQueue"
-#define MODE_FLAGS              0666
-#define MSG_PRIORITY            1
-#define MAX_MESSAGES            10
-#define MAX_MSG_LEN             64
 
 //***************************** Global Variables ******************************
-uint32 ulDataCount = 0;
-pthread_mutex_t mFileMutex = {0};
-mqd_t mMessageQueue = 0;
-sem_t *psProducerSemaphore = NULL;
-sem_t *psConsumerSemaphore = NULL;
-sem_t *psMainThreadSemaphore = NULL;
+static uint32 ulDataCount = 0;
 
-//******************************.ProducerThread.*******************************
-//Purpose : Generate a random number
-//Inputs : None
-//Outputs : None
-//Return : None
-//Notes : None
+//*******************************.PollerThread.********************************
+//Purpose   : Detect GPIO input state change
+//Inputs    : None
+//Outputs   : None
+//Return    : None
+//Notes     : Check GPIO for input changes and notify TransportThread 
+//          : through Message Queue
 //*****************************************************************************
-void* ProducerThread()
+void* PollerThread()
 {
-    uint16 unRandomNumber = 0;
-    uint8 pucRandomNumberString[STRING_LEN] = {0};
+    uint8 ucInputValue = 0;
+    int8 pcMessageString[STRING_LEN] = {0};
+    int8 pcReadData[STRING_LEN] = {0};
 
-    while(TRUE)
+    while(1)
     {
-        sem_wait(psProducerSemaphore);
-        unRandomNumber = (rand() % (MAX_VALUE- MIN_VALUE + 1)) + MIN_VALUE;
-        memset(pucRandomNumberString, 0, sizeof(pucRandomNumberString));
-        sprintf(pucRandomNumberString, 
-                "From Producer task : %03d\r\n", 
-                unRandomNumber);
-        pthread_mutex_lock(&mFileMutex);
-        fileHandlerFileWriteInPosition(FILE_NAME, 
-                                       pucRandomNumberString, 
-                                       DATA_SIZE, 
-                                       ulDataCount);
-        ulDataCount++;
-        pthread_mutex_unlock(&mFileMutex);
-        sem_post(psConsumerSemaphore);
-    }
-
-    pthread_exit((void *)0);
-}
-
-//******************************.ConsumerThread.*******************************
-//Purpose : Print the random number from Producer
-//Inputs : None
-//Outputs : None
-//Return : None
-//Notes : None
-//*****************************************************************************
-void* ConsumerThread()
-{
-    uint8 pucReadData[STRING_LEN] = {0};
-
-    while(TRUE)
-    {
-        memset(pucReadData, 0, sizeof(pucReadData));
-        if(mq_receive(mMessageQueue, 
-                        pucReadData, 
-                        MAX_MSG_LEN, 
-                        NULL) == ERROR_VALUE)
+        possixOperationPollerSemaphoreWait();
+        printf("Enter a number between 1 to 10 : ");
+        scanf("%[^\n]c", &ucInputValue);
+        getchar();
+        if(ucInputValue < '0' || ucInputValue > '9')
         {
-            printf("Message Receive Failed\r\n");
+            printf("Exit from loop\r\n");
+            break;
         }
-        printf("%s", pucReadData);
-        sem_wait(psConsumerSemaphore);
-        memset(pucReadData, 0, sizeof(pucReadData));
-        pthread_mutex_lock(&mFileMutex);
-        fileHandlerFileReadFromPosition(FILE_NAME, 
-                                    pucReadData, 
-                                    DATA_SIZE, 
-                                    ulDataCount-1);
-        printf("In Counsumer - %s",pucReadData);
-        pthread_mutex_unlock(&mFileMutex);
-        sem_post(psMainThreadSemaphore);
+        possixOperationInputMessageReceive(pcReadData);
+        memset(pcMessageString, 0, sizeof(pcMessageString));
+        sprintf((char*)pcMessageString, 
+                "Key Pressed in  Poller : %c\r\n", 
+                ucInputValue);
+        possixOperationInputMessageSend(pcMessageString);
+        possixOperationConditionalMutexLock();
+        possixOperationConditionSetValue();
+        possixOperationConditionalVarBroadcast();
+        possixOperationConditionalMutexUnlock();
+
+    }
+    
+    pthread_exit((void *)0);
+
+}
+
+//******************************.TransportThread.******************************
+//Purpose   : Transfer message from PollerThread to LoggerThread
+//Inputs    : None
+//Outputs   : None
+//Return    : None
+//Notes     : Receive message from PollerThread and send acknowledge to it.
+//          : Send a message to Loger thread regarding GPIO state change
+//*****************************************************************************
+void* TransportThread()
+{
+    int8 pcReadData[STRING_LEN] = {0};
+    int8 pcMessageString[MAX_STR_LEN] = {0};
+
+    while(TRUE)
+    {
+        possixOperationConditionalMutexLock();
+        while(possixOperationConditionCheckValue() == false)
+        {
+            possixOperationConditionalVarWait();
+        } 
+        possixOperationConditionClearValue();
+        possixOperationConditionalMutexUnlock();
+        memset(pcReadData, 0, sizeof(pcReadData));
+        possixOperationInputMessageReceive(pcReadData);
+        if(strstr((char*)pcReadData, "Key Pressed"))
+        {
+            memset(pcMessageString, 0, sizeof(pcMessageString));
+            sprintf((char*)pcMessageString, "Key Press Acknowledged\r\n");
+            possixOperationInputMessageSend(pcMessageString);
+            memset(pcMessageString, 0, sizeof(pcMessageString));
+            possixOperationOutputMessageReceive(pcMessageString);
+            memset(pcMessageString, 0, sizeof(pcMessageString));
+            sprintf((char*)pcMessageString, "%s\r\n",pcReadData);
+            possixOperationOutputMessageSend(pcMessageString);
+        }
+        possixOperationLoggerSemaphorePost();
+    }
+    
+    pthread_exit((void *)0);
+
+}
+
+//******************************.LoggerThread.*********************************
+//Purpose   : Controls state of GPIO according to message from TramsportThread
+//Inputs    : None
+//Outputs   : None
+//Return    : None
+//Notes     : Receive a message from TransportThread and change GPIO state.
+//          : Send an acknowledge to TransportThread 
+//*****************************************************************************
+void* LoggerThread()
+{
+    int8 pcMessageString[MAX_STR_LEN] = {0};
+    int8 pcReadData[STRING_LEN] = {0};
+
+    while(TRUE)
+    {
+        possixOperationLoggerSemaphoreWait();
+        memset(pcReadData, 0, sizeof(pcReadData));
+        possixOperationOutputMessageReceive(pcReadData);
+        printf("%s", pcReadData);
+        if(strstr((char*)pcReadData, "Key Pressed"))
+        {
+            memset(pcMessageString, 0, sizeof(pcMessageString));
+            sprintf((char*)pcMessageString, 
+                    "%04d  : %s", 
+                    ulDataCount, pcReadData);
+            ulDataCount++;
+            fileHandlerFileWrite(FILE_NAME, 
+                                 pcMessageString, 
+                                 DATA_SIZE, 
+                                 OPEN_APND);
+            memset(pcReadData, 0, sizeof(pcReadData));
+            sprintf((char*)pcReadData, "Input Acknowledged\r\n");
+            possixOperationOutputMessageSend(pcReadData);
+        }
+        possixOperationPollerSemaphorePost();
     }
 
     pthread_exit((void *)0);
 }
-
 //******************************.main.*****************************************
 //Purpose   : Multi thread program to perform file operations
 //Inputs    : None
@@ -124,138 +155,35 @@ void* ConsumerThread()
 //*****************************************************************************
 int main()
 {
-    uint8 ucInputValue = 0;
-    uint8 pucMessageString[STRING_LEN] = {0};
-    pthread_t ptFirstThread = 0;
-    pthread_t ptSecondThread = 0;
+    pthread_t ulPollerThread = 0;
+    pthread_t ulTransportThread = 0;
+    pthread_t ulLoggerThread = 0;
 
-    struct mq_attr stAttributes = {
-                                 .mq_flags = 0,
-                                 .mq_maxmsg = MAX_MESSAGES, 
-                                 .mq_msgsize = MAX_MSG_LEN, 
-                                 .mq_curmsgs = 0
-                                };
-
-    mMessageQueue = mq_open(MQ_NAME, 
-                             O_CREAT | O_RDWR, 
-                             MODE_FLAGS, 
-                             &stAttributes);
-    if(mMessageQueue == ERROR_VALUE)
+    fileHandlerInitialCheck();
+    possixOperationSystemInit();
+    if(possixHandlerThreadCreate(&ulPollerThread, PollerThread, NULL) != true)
     {
-        printf("Message Queue Creation failed\r\n");
-        exit(-1);
+        printf("Poller Thread creation failed\r\n");
+        exit(ERROR_VALUE);
     }
-    if(fileHandlerFileCheckExist(FILE_NAME) == true)
+    if(possixHandlerThreadCreate(&ulLoggerThread, LoggerThread, NULL) != true)
     {
-        if(fileHandlerFileRemove(FILE_NAME) != true)
-        {
-            printf("Failed to remove %s file\r\n",FILE_NAME);
-        }
-
-        if(fileHandlerFileCreate(FILE_NAME) != true)
-        {
-            printf("File %s create failed\r\n",FILE_NAME);
-            exit(-1);
-        }
+        printf("Logger Thread creation failed\r\n");
+        exit(ERROR_VALUE);
     }
-    psProducerSemaphore = sem_open(SEM_NAME1, O_CREAT | O_EXCL, MODE_FLAGS, 0);
-    if(psProducerSemaphore == SEM_FAILED)
+    if(possixHandlerThreadCreate(&ulTransportThread, 
+                                 TransportThread, 
+                                 NULL) != true)
     {
-        sem_unlink(SEM_NAME1);
-        psProducerSemaphore = sem_open(SEM_NAME1, O_CREAT, MODE_FLAGS, 0);
-        if(psProducerSemaphore == SEM_FAILED)
-        {
-            printf("Producer Semaphore Creation failed\r\n");
-            exit(-1);
-        }
+        printf("Transport Thread creation failed\r\n");
+        exit(ERROR_VALUE);
     }
-    psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT | O_EXCL, MODE_FLAGS, 0);
-    if(psConsumerSemaphore == SEM_FAILED)
-    {
-        sem_unlink(SEM_NAME2);
-        psConsumerSemaphore = sem_open(SEM_NAME2, O_CREAT, MODE_FLAGS, 0);
-        if(psConsumerSemaphore == SEM_FAILED)
-        {
-            printf("Consumer Semaphore Creation failed\r\n");
-            exit(-1);
-        }
-    }
-    psMainThreadSemaphore = sem_open(SEM_NAME3, 
-                                     O_CREAT | O_EXCL, 
-                                     MODE_FLAGS, 
-                                     1);
-    if(psMainThreadSemaphore == SEM_FAILED)
-    {
-        sem_unlink(SEM_NAME3);
-        psMainThreadSemaphore = sem_open(SEM_NAME3, O_CREAT, MODE_FLAGS, 1);
-        if(psMainThreadSemaphore == SEM_FAILED)
-        {
-            printf("Mainthread Semaphore Creation failed\r\n");
-            exit(-1);
-        }
-    }
-    if(pthread_mutex_init(&mFileMutex, NULL) != RETURN_OK)
-    {
-        printf("Mutex Initialisation failed\r\n");
-        exit(-1);
-    }
-    if(pthread_create(&ptFirstThread, 
-                      NULL, 
-                      &ProducerThread, 
-                      NULL) != RETURN_OK)
-    {
-        printf("Producer Thread Creation failed\r\n");
-        exit(-1);
-    }
-    if(pthread_create(&ptSecondThread, 
-                      NULL, 
-                      &ConsumerThread, 
-                      NULL) != RETURN_OK)
-    {
-        printf("Consumer Thread Creation failed\r\n");
-        exit(-1);
-    }
-
-    while(TRUE)
-    {
-        sem_wait(psMainThreadSemaphore);
-        printf("Enter a number between 1 to 10 : ");
-        scanf("%[^\n]c", &ucInputValue);
-        getchar();
-        if(ucInputValue < '0' || ucInputValue > '9')
-        {
-            printf("Exit from loop\r\n");
-            break;
-        }
-        memset(pucMessageString, 0, sizeof(pucMessageString));
-        sprintf(pucMessageString, 
-                "Key Pressed in  Main : %c\r\n", 
-                ucInputValue);
-        if(mq_send(mMessageQueue, 
-                   pucMessageString, 
-                   MAX_MSG_LEN, 
-                   MSG_PRIORITY) == ERROR_VALUE)
-        {
-            printf("Message Send Failed\r\n");
-        }
-        sem_post(psProducerSemaphore);
-    }
-
-    pthread_cancel(ptFirstThread);          // Cancel reruest for First thread
-    // pthread_join(ptFirstThread,NULL);       // Wait for first thread to exit
-    printf("First Thread Exited\r\n");
-    pthread_cancel(ptSecondThread);         // Cancel request for second thread
-    pthread_join(ptSecondThread,NULL);      // Wait for second thread to exit
-    printf("Second Thread Exited\r\n");
-
-    sem_close(psProducerSemaphore);         // Close the semaphore descriptor
-    sem_unlink(SEM_NAME1);                  // Unlink the named semaphore
-    sem_close(psConsumerSemaphore);         // Close the semaphore descriptor
-    sem_unlink(SEM_NAME2);                  // Unlink the named semaphore
-    sem_close(psMainThreadSemaphore);       // Close the semaphore descriptor
-    sem_unlink(SEM_NAME3);                  // Unlink the named semaphore
-    mq_close(mMessageQueue);                // Close Message queue
-    mq_unlink(MQ_NAME);                     // Unlink Message queue
-    pthread_mutex_destroy(&mFileMutex);     // Delete mutex after use
-
+  
+    possixHandlerThreadJoin(ulPollerThread);
+    possixHandlerThreadCancel(ulTransportThread);
+    possixHandlerThreadJoin(ulTransportThread);
+    possixHandlerThreadCancel(ulLoggerThread);
+    possixHandlerThreadJoin(ulLoggerThread);
+    possixOperationSystemDeinit();
+    printf("Exiting Program\r\n");
 }

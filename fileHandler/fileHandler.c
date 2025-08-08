@@ -26,22 +26,22 @@
 //Purpose   : Opens a file in given name
 //Inputs    : puFileName - File name
 //Inputs    : puFileOpenMode - Opening mode
-//Outputs   : pFileHandle - Pointer to opened file
+//Outputs   : pstFileHandle - Pointer to opened file
 //Return    : true - File opened, false - File open failed
 //Notes     : None
 //*****************************************************************************
-bool fileHandlerFileOpen(FILE **pFileHandle, 
-                         uint8 *pucFileName, 
-                         uint8 *pucFileOpenMode)
+bool fileHandlerFileOpen(FILE **pstFileHandle, 
+                         int8 *pcFileName, 
+                         int8 *pcFileOpenMode)
 {
     bool blReturn = false;
 
-    if(*pFileHandle == NULL)
+    if(*pstFileHandle == NULL)
     {
-        if((pucFileName != NULL) && (pucFileOpenMode != NULL))
+        if((pcFileName != NULL) && (pcFileOpenMode != NULL))
         {
-            *pFileHandle = fopen(pucFileName, pucFileOpenMode);
-            if(*pFileHandle != NULL)
+            *pstFileHandle = fopen(pcFileName, pcFileOpenMode);
+            if(*pstFileHandle != NULL)
             {
                 blReturn = true;
             }
@@ -65,21 +65,21 @@ bool fileHandlerFileOpen(FILE **pFileHandle,
 
 //****************************.fileHandlerFileClose.***************************
 //Purpose   : Close a file in given Handler
-//Inputs    : pFileHandle - File handler address
+//Inputs    : pstFileHandle - File handler address
 //Outputs   : None
 //Return    : true - File closed, false - File close failed
 //Notes     : Close a given file and reset the pointer value
 //*****************************************************************************
-bool fileHandlerFileClose(FILE **pFileHandle)
+bool fileHandlerFileClose(FILE **pstFileHandle)
 {
     bool blReturn = false;
 
-    if(*pFileHandle != NULL)
+    if(*pstFileHandle != NULL)
     {
-        if(fclose(*pFileHandle) == RETURN_OK)
+        if(fclose(*pstFileHandle) == RETURN_OK)
         {
             blReturn = true;
-            pFileHandle = NULL;
+            pstFileHandle = NULL;
         }
         else
         {
@@ -96,18 +96,18 @@ bool fileHandlerFileClose(FILE **pFileHandle)
 
 //**********************.fileHandlerFilePointerPosition.***********************
 //Purpose   : Find current position of pointer in file
-//Inputs    : pFileHandle - File pointer to an opened file
+//Inputs    : pstFileHandle - File pointer to an opened file
 //Outputs   : pulPosition - current position of pointer
 //Return    : true - Success, false - failed
 //Notes     : None
 //*****************************************************************************
-bool fileHandlerFilePointerPosition(FILE ** pFileHandle, int32 *plPosition)
+bool fileHandlerFilePointerPosition(FILE ** pstFileHandle, int32 *plPosition)
 {
     bool blReturn = false;
 
-    if((*pFileHandle != NULL) && (plPosition != NULL))
+    if((*pstFileHandle != NULL) && (plPosition != NULL))
     {
-        *plPosition = ftell(*pFileHandle);
+        *plPosition = ftell(*pstFileHandle);
         if(*plPosition != ERROR_VALUE)
         {
             blReturn = true;
@@ -127,20 +127,20 @@ bool fileHandlerFilePointerPosition(FILE ** pFileHandle, int32 *plPosition)
 
 //***************************.fileHandlerFileSeek.*****************************
 //Purpose   : Find current position of pointer in file
-//Inputs    : pFileHandle - File pointer to an opened file
+//Inputs    : pstFileHandle - File pointer to an opened file
 //Inputs    : lOffset - Offset value we need to move pointer
 //Inputs    : lPosition - Position from we need to move pointer
 //Outputs   : None
 //Return    : true - Pointer moved to given position, false - failed to move
 //Notes     : None
 //*****************************************************************************
-bool fileHandlerFileSeek(FILE **pFileHandle, int32 lOffset, int32 lPosition)
+bool fileHandlerFileSeek(FILE **pstFileHandle, int32 lOffset, int32 lPosition)
 {
     bool blReturn = false;
 
-    if(*pFileHandle != NULL)
+    if(*pstFileHandle != NULL)
     {
-        if(fseek(*pFileHandle, lOffset, lPosition) == RETURN_OK)
+        if(fseek(*pstFileHandle, lOffset, lPosition) == RETURN_OK)
         {
             blReturn = true;
         }
@@ -155,38 +155,38 @@ bool fileHandlerFileSeek(FILE **pFileHandle, int32 lOffset, int32 lPosition)
 
 //****************************.fileHandlerFileWrite.***************************
 //Purpose   : Write data to a file
-//Inputs    : puFileName - Name of file
-//Inputs    : puWriteData - Data to be written
+//Inputs    : pcFileName - Name of file
+//Inputs    : pcWriteData - Data to be written
 //Inputs    : ulWriteSize - Size of data
-//Inputs    : puWriteMode - File open mode (write or append)
+//Inputs    : pcWriteMode - File open mode (write or append)
 //Outputs   : None
 //Return    : true - File write success, false - File write failed
 //Notes     : Write a data to a given file
 //*****************************************************************************
-bool fileHandlerFileWrite(uint8 *pucFileName, 
-                          uint8 *pucWriteData, 
+bool fileHandlerFileWrite(int8 *pcFileName, 
+                          int8 *pcWriteData, 
                           uint32 ulWriteSize, 
-                          uint8 *pucWriteMode)
+                          int8 *pcWriteMode)
 {
     bool blReturn = false;
 
-    if((pucFileName != NULL) && 
-       (pucWriteData != NULL) && 
-       (pucWriteMode != NULL) && 
+    if((pcFileName != NULL) && 
+       (pcWriteData != NULL) && 
+       (pcWriteMode != NULL) && 
        (ulWriteSize != 0) && 
-       (strcmp(OPEN_RD, pucWriteMode)) &&
-       (strcmp(OPEN_R_PLUS, pucFileName)))
+       (strcmp(OPEN_RD, pcWriteMode)) &&
+       (strcmp(OPEN_R_PLUS, pcFileName)))
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, 
-                               pucFileName, 
-                               pucWriteMode) == true)
+        if(fileHandlerFileOpen(&pstFileHandle, 
+                               pcFileName, 
+                               pcWriteMode) == true)
         {
-            if(fwrite(pucWriteData, 
+            if(fwrite(pcWriteData, 
                       sizeof(uint8), 
                       ulWriteSize, 
-                      pFileHandle) == ulWriteSize)
+                      pstFileHandle) == ulWriteSize)
             {
                 blReturn = true;
             }
@@ -195,7 +195,7 @@ bool fileHandlerFileWrite(uint8 *pucFileName,
                 printf("File write failed\r\n");
             }
 
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
         }
         else
         {
@@ -212,8 +212,8 @@ bool fileHandlerFileWrite(uint8 *pucFileName,
 
 //***********************.fileHandlerFileWriteInPosition.**********************
 //Purpose   : Write data to in given position of file
-//Inputs    : puFileName - Name of file
-//Inputs    : puWriteData - Data to be written
+//Inputs    : pcFileName - Name of file
+//Inputs    : pcWriteData - Data to be written
 //Inputs    : ulWriteSize - Size of data
 //Inputs    : ulPosition - Position of data
 //Outputs   : None
@@ -221,31 +221,30 @@ bool fileHandlerFileWrite(uint8 *pucFileName,
 //Notes     : Designed to write data of same type and same size into file
 //          : Actual position is calculated by Position * sizeof(single data)
 //*****************************************************************************
-bool fileHandlerFileWriteInPosition(uint8 *pucFileName, 
-                                    uint8 *pucWriteData, 
+bool fileHandlerFileWriteInPosition(int8 *pcFileName, 
+                                    int8 *pcWriteData, 
                                     uint32 ulWriteSize, 
                                     uint32 ulPosition)
 {
     bool blReturn = false;
 
-    if((pucFileName != NULL) && 
-       (pucWriteData != NULL) && 
-       (ulWriteSize != 0) && 
-       (ulPosition >= ZERO))
+    if((pcFileName != NULL) && 
+       (pcWriteData != NULL) && 
+       (ulWriteSize != 0))
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, 
-                               pucFileName, 
+        if(fileHandlerFileOpen(&pstFileHandle, 
+                               pcFileName, 
                                OPEN_APND) == true)
         {
-            fileHandlerFileSeek(&pFileHandle, 
+            fileHandlerFileSeek(&pstFileHandle, 
                                 (ulPosition * ulWriteSize), 
                                 SEEK_SET);
-            if(fwrite(pucWriteData, 
+            if(fwrite(pcWriteData, 
                       sizeof(uint8), 
                       ulWriteSize, 
-                      pFileHandle) == ulWriteSize)
+                      pstFileHandle) == ulWriteSize)
             {
                 blReturn = true;
             }
@@ -254,7 +253,7 @@ bool fileHandlerFileWriteInPosition(uint8 *pucFileName,
                 printf("File write failed in Write in Position\r\n");
             }
 
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
         }
         else
         {
@@ -270,35 +269,35 @@ bool fileHandlerFileWriteInPosition(uint8 *pucFileName,
 }
 //****************************.fileHandlerFileRead.****************************
 //Purpose   : Read data from file
-//Inputs    : puFileName - Name of file
-//Inputs    : ulWriteSize - Size of data
-//Inputs    : puWriteMode - File open mode (read or plus modes)
+//Inputs    : pcFileName - Name of file
+//Inputs    : ulReadSize - Size of data
+//Inputs    : pcReadMode - File open mode (read or plus modes)
 //Outputs   : Data read from file
 //Return    : true - File read success, false - File read failed
 //Notes     : Read a data from given file
 //*****************************************************************************
-bool fileHandlerFileRead(uint8 *pucFileName, 
-                          uint8 *pucWriteData, 
-                          uint32 ulWriteSize, 
-                          uint8 *pucWriteMode)
+bool fileHandlerFileRead(int8 *pcFileName, 
+                        int8 *pcReadData, 
+                        uint32 ulReadSize, 
+                        int8 *pcReadMode)
 {
     bool blReturn = false;
 
-    if((pucFileName != NULL) && 
-       (pucWriteData != NULL) && 
-       (pucWriteMode != NULL) && 
-       (ulWriteSize != 0) && 
-       (strcmp(OPEN_WR, pucWriteMode)) && 
-       (strcmp(OPEN_W_PLUS, pucWriteMode)))
+    if((pcFileName != NULL) && 
+       (pcReadData != NULL) && 
+       (pcReadMode != NULL) && 
+       (ulReadSize != 0) && 
+       (strcmp(OPEN_WR, pcReadMode)) && 
+       (strcmp(OPEN_W_PLUS, pcReadMode)))
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, pucFileName, pucWriteMode) == true)
+        if(fileHandlerFileOpen(&pstFileHandle, pcFileName, pcReadMode) == true)
         {
-            if(fread(pucWriteData, 
+            if(fread(pcReadData, 
                      sizeof(uint8), 
-                     ulWriteSize, 
-                     pFileHandle) == ulWriteSize)
+                     ulReadSize, 
+                     pstFileHandle) == ulReadSize)
             {
                 blReturn = true;
             }
@@ -307,7 +306,7 @@ bool fileHandlerFileRead(uint8 *pucFileName,
                 printf("File write failed\r\n");
             }
 
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
         }
         else
         {
@@ -332,31 +331,30 @@ bool fileHandlerFileRead(uint8 *pucFileName,
 //Notes     : Designed to read data of same type and same size from file
 //          : Actual position is calculated by Position * sizeof(single data)
 //*****************************************************************************
-bool fileHandlerFileReadFromPosition(uint8 *pucFileName, 
-                                     uint8 *pucWriteData, 
+bool fileHandlerFileReadFromPosition(int8 *pcFileName, 
+                                     int8 *pcReadData, 
                                      uint32 ulWriteSize, 
                                      uint32 ulPosition)
 {
     bool blReturn = false;
 
-    if((pucFileName != NULL) && 
-       (pucWriteData != NULL) && 
-       (ulWriteSize != 0) && 
-       (ulPosition >= ZERO))
+    if((pcFileName != NULL) && 
+       (pcReadData != NULL) && 
+       (ulWriteSize != 0))
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, 
-                               pucFileName, 
+        if(fileHandlerFileOpen(&pstFileHandle, 
+                               pcFileName, 
                                OPEN_RD) == true)
         {
-            fileHandlerFileSeek(&pFileHandle, 
+            fileHandlerFileSeek(&pstFileHandle, 
                                 (ulPosition * ulWriteSize), 
                                 SEEK_SET);
-            if(fread(pucWriteData, 
+            if(fread(pcReadData, 
                      sizeof(uint8), 
                      ulWriteSize, 
-                     pFileHandle) == ulWriteSize)
+                     pstFileHandle) == ulWriteSize)
             {
                 blReturn = true;
             }
@@ -365,7 +363,7 @@ bool fileHandlerFileReadFromPosition(uint8 *pucFileName,
                 printf("File read failed in read from Position\r\n");
             }
 
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
         }
         else
         {
@@ -387,16 +385,16 @@ bool fileHandlerFileReadFromPosition(uint8 *pucFileName,
 //Return    : true - File clear success, false - File clear failed
 //Notes     : Clear all data from given file
 //*****************************************************************************
-bool fileHandlerFileRemove(uint8 *pucFileName)
+bool fileHandlerFileRemove(int8 *pcFileName)
 {
     bool blReturn = false;
 
-    if(pucFileName != NULL)
+    if(pcFileName != NULL)
     {
-       if(remove(pucFileName) == RETURN_OK)
+       if(remove(pcFileName) == RETURN_OK)
         {
             blReturn = true;
-            printf("File %s removed\r\n", pucFileName);
+            printf("File %s removed\r\n", pcFileName);
         }
         else
         {
@@ -418,22 +416,22 @@ bool fileHandlerFileRemove(uint8 *pucFileName)
 //Return    : true - File Create success, false - File create failed
 //Notes     : Create a new file
 //*****************************************************************************
-bool fileHandlerFileCreate(uint8 *pucFileName)
+bool fileHandlerFileCreate(int8 *pcFileName)
 {
     bool blReturn = false;
 
-    if(pucFileName != NULL)
+    if(pcFileName != NULL)
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, pucFileName, OPEN_WR) == true)
+        if(fileHandlerFileOpen(&pstFileHandle, pcFileName, OPEN_WR) == true)
         {
             blReturn = true;
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
         }
         else
         {
-            printf("Failed to Create file '%s'\r\n", pucFileName);
+            printf("Failed to Create file '%s'\r\n", pcFileName);
         }
     }
 
@@ -447,21 +445,54 @@ bool fileHandlerFileCreate(uint8 *pucFileName)
 //Return    : true - File already exist, false - File does no exist
 //Notes     : None
 //*****************************************************************************
-bool fileHandlerFileCheckExist(uint8 *pucFileName)
+bool fileHandlerFileCheckExist(int8 *pcFileName)
 {
     bool blReturn = false;
 
-    if(pucFileName != NULL)
+    if(pcFileName != NULL)
     {
-        FILE *pFileHandle = NULL;
+        FILE *pstFileHandle = NULL;
 
-        if(fileHandlerFileOpen(&pFileHandle, pucFileName, OPEN_RD) == true)
+        if(fileHandlerFileOpen(&pstFileHandle, pcFileName, OPEN_RD) == true)
         {
-            fileHandlerFileClose(&pFileHandle);
+            fileHandlerFileClose(&pstFileHandle);
             blReturn = true;
         }
     }
 
     return blReturn;
 
+}
+
+//**************************.fileHandlerInitialCheck.**************************
+//Purpose   : Check a file exist or not and clear or create it
+//Inputs    : None
+//Outputs   : None
+//Return    : true - Success, false - Failed
+//Notes     : Check for files exixtance. Create if file doesn't exist
+//            Clear if file exist
+//*****************************************************************************
+bool fileHandlerInitialCheck()
+{
+    bool blReturn = false;
+
+    if(fileHandlerFileCheckExist(FILE_NAME) == true)
+    {
+        if(fileHandlerFileRemove(FILE_NAME) != true)
+        {
+            printf("Failed to remove %s file\r\n",FILE_NAME);
+        }
+    }
+    if(fileHandlerFileCreate(FILE_NAME) != true)
+    {
+        printf("File %s create failed\r\n",FILE_NAME);
+        exit(-1);
+    }
+    else
+    {
+        blReturn = true;
+    }
+
+    return blReturn;
+    
 }
