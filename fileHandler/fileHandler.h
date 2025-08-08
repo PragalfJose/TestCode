@@ -17,6 +17,12 @@
 #include "Common.h"
 
 //******************************* Global Types ********************************
+#define MAX_VALUE               999
+#define MIN_VALUE               1
+#define STRING_LEN              64
+#define MAX_STR_LEN             256
+#define FILE_NAME               "TestDoc.txt"
+#define DATA_SIZE               36
 
 //***************************** Global Constants ******************************
 #define OPEN_WR                 "w"
@@ -29,31 +35,32 @@
 //***************************** Global Variables ******************************
 
 //**************************** Forward Declarations ***************************
-bool fileHandlerFileOpen(FILE **pFileHandle, 
-                         uint8 *pucFileName, 
-                         uint8 *pucFileOpenMode);
-bool fileHandlerFileClose(FILE **pFileHandle);
-bool fileHandlerFileWrite(uint8 *pucFileName, 
-                          uint8 *pucWriteData, 
+bool fileHandlerFileOpen(FILE **pstFileHandle, 
+                         int8 *pcFileName, 
+                         int8 *pcFileOpenMode);
+bool fileHandlerFileClose(FILE **pstFileHandle);
+bool fileHandlerFileWrite(int8 *pcFileName, 
+                          int8 *pcWriteData, 
                           uint32 ulWriteSize, 
-                          uint8 *pucWriteMode);
-bool fileHandlerFileWriteInPosition(uint8 *pucFileName, 
-                                    uint8 *pucWriteData, 
+                          int8 *pcWriteMode);
+bool fileHandlerFileWriteInPosition(int8 *pcFileName, 
+                                    int8 *pcWriteData, 
                                     uint32 ulWriteSize, 
                                     uint32 ulPosition);
-bool fileHandlerFileRead(uint8 *pucFileName, 
-                          uint8 *pucWriteData, 
-                          uint32 ulWriteSize, 
-                          uint8 *pucWriteMode);
-bool fileHandlerFileReadFromPosition(uint8 *pucFileName, 
-                                     uint8 *pucWriteData, 
-                                     uint32 ulWriteSize, 
+bool fileHandlerFileRead(int8 *pcFileName, 
+                         int8 *pcReadData, 
+                         uint32 ulReadSize, 
+                         int8 *pcReadMode);
+bool fileHandlerFileReadFromPosition(int8 *pcFileName, 
+                                     int8 *pcReadData, 
+                                     uint32 ulReadSize, 
                                      uint32 ulPosition);
-bool fileHandlerFileRemove(uint8 *pucFileName);
-bool fileHandlerFileCreate(uint8 *pucFileName);
-bool fileHandlerFileCheckExist(uint8 *pucFileName);
-bool fileHandlerFilePointerPosition(FILE ** pFileHandle, int32 *plPosition);
-bool fileHandlerFileSeek(FILE **pFileHandle, int32 lOffset, int32 lPosition);
+bool fileHandlerFileRemove(int8 *pcFileName);
+bool fileHandlerFileCreate(int8 *pcFileName);
+bool fileHandlerFileCheckExist(int8 *pcFileName);
+bool fileHandlerFilePointerPosition(FILE ** pstFileHandle, int32 *plPosition);
+bool fileHandlerFileSeek(FILE **pstFileHandle, int32 lOffset, int32 lPosition);
+bool fileHandlerInitialCheck();
 
 #endif // _FILE_HANDLER_H
 // EOF
